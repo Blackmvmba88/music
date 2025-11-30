@@ -139,7 +139,7 @@ async def get_info(url: str = Query(..., description="Video URL")):
     """Get audio info from URL."""
     # Validate URL before expensive yt-dlp processing
     if not validate_url(url):
-        raise HTTPException(status_code=400, detail="Invalid URL format")
+        raise HTTPException(status_code=400, detail="Invalid URL: must be a valid HTTP or HTTPS URL")
     
     info = get_audio_info(url)
     if not info:
@@ -152,7 +152,7 @@ async def stream_audio(url: str = Query(..., description="Video URL")):
     """Stream audio from URL."""
     # Validate URL before expensive yt-dlp processing
     if not validate_url(url):
-        raise HTTPException(status_code=400, detail="Invalid URL format")
+        raise HTTPException(status_code=400, detail="Invalid URL: must be a valid HTTP or HTTPS URL")
     
     audio_url = get_audio_url(url)
     if not audio_url:
@@ -232,7 +232,7 @@ async def websocket_waveform(websocket: WebSocket, url: str = Query(...)):
     
     # Validate URL before expensive yt-dlp processing
     if not validate_url(url):
-        await websocket.send_json({"type": "error", "message": "Invalid URL format"})
+        await websocket.send_json({"type": "error", "message": "Invalid URL: must be a valid HTTP or HTTPS URL"})
         await websocket.close()
         return
     

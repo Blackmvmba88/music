@@ -29,23 +29,8 @@ function validateUrl(url) {
         return false;
     }
     
-    // Use pre-compiled regex for performance
-    if (!URL_PATTERN.test(url)) {
-        return false;
-    }
-    
-    // Additional validation using URL constructor
-    try {
-        const parsed = new URL(url);
-        // Must have http or https protocol
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return false;
-        }
-    } catch {
-        return false;
-    }
-    
-    return true;
+    // Use pre-compiled regex for performance (validates protocol, domain format, etc.)
+    return URL_PATTERN.test(url);
 }
 
 // DOM Elements
@@ -209,7 +194,7 @@ async function playAudio() {
     
     // Validate URL before making API calls (optimized - avoids unnecessary requests)
     if (!validateUrl(videoUrl)) {
-        alert('Please enter a valid URL (must start with http:// or https://)');
+        alert('Please enter a valid URL');
         return;
     }
     
