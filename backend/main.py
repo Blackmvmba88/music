@@ -75,8 +75,12 @@ async def stream_audio_generator(audio_url: str):
                 break
             yield chunk
     finally:
-        process.kill()
-        await process.wait()
+        process.terminate()
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
 
 
 @app.get("/")
@@ -160,8 +164,12 @@ class WaveformGenerator:
         except Exception as e:
             print(f"Error generating waveform: {e}")
         finally:
-            process.kill()
-            await process.wait()
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
 
 
 @app.websocket("/ws/waveform")

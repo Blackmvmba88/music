@@ -3,9 +3,10 @@ const BACKEND_URL = window.location.hostname === 'localhost' || window.location.
     ? 'http://localhost:8000'
     : `${window.location.protocol}//${window.location.hostname}:8000`;
 
+const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'ws://localhost:8000'
-    : `ws://${window.location.hostname}:8000`;
+    : `${WS_PROTOCOL}//${window.location.hostname}:8000`;
 
 // DOM Elements
 const urlInput = document.getElementById('url-input');
@@ -76,10 +77,15 @@ function drawWaveform() {
         const x = i * barWidth;
         const y = centerY - barHeight / 2;
         
-        // Draw bar with rounded corners
+        // Draw bar with rounded corners (with fallback for older browsers)
         const radius = Math.min(barWidth / 4, 3);
         ctx.beginPath();
-        ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius);
+        if (ctx.roundRect) {
+            ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius);
+        } else {
+            // Fallback for browsers without roundRect support
+            ctx.rect(x + 1, y, barWidth - 2, barHeight);
+        }
         ctx.fill();
     }
     
