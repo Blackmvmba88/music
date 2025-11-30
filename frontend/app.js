@@ -8,6 +8,46 @@ const WS_URL = window.location.hostname === 'localhost' || window.location.hostn
     ? 'ws://localhost:8000'
     : `${WS_PROTOCOL}//${window.location.hostname}:8000`;
 
+// URL validation pattern (optimized - compiled once)
+const URL_PATTERN = /^https?:\/\/(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d+)?(?:\/?|[/?]\S+)$/i;
+
+/**
+ * Validate URL format before sending to backend.
+ * This optimized validation prevents unnecessary API calls on invalid URLs.
+ * @param {string} url - The URL to validate
+ * @returns {boolean} - True if URL is valid, false otherwise
+ */
+function validateUrl(url) {
+    if (!url || typeof url !== 'string') {
+        return false;
+    }
+    
+    url = url.trim();
+    
+    // Quick length check
+    if (url.length < 10 || url.length > 2048) {
+        return false;
+    }
+    
+    // Use pre-compiled regex for performance
+    if (!URL_PATTERN.test(url)) {
+        return false;
+    }
+    
+    // Additional validation using URL constructor
+    try {
+        const parsed = new URL(url);
+        // Must have http or https protocol
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return false;
+        }
+    } catch {
+        return false;
+    }
+    
+    return true;
+}
+
 // DOM Elements
 const urlInput = document.getElementById('url-input');
 const playBtn = document.getElementById('play-btn');
@@ -164,6 +204,12 @@ async function playAudio() {
     
     if (!videoUrl) {
         alert('Please enter a video URL');
+        return;
+    }
+    
+    // Validate URL before making API calls (optimized - avoids unnecessary requests)
+    if (!validateUrl(videoUrl)) {
+        alert('Please enter a valid URL (must start with http:// or https://)');
         return;
     }
     

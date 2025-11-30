@@ -1,13 +1,58 @@
 import asyncio
 import subprocess
 import struct
+import re
 from typing import Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from urllib.parse import urlparse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import yt_dlp
 
 app = FastAPI(title="Music Streaming API")
+
+# Compiled regex patterns for URL validation (optimized - compiled once at module load)
+URL_PATTERN = re.compile(
+    r'^https?://'  # http:// or https://
+    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain
+    r'localhost|'  # localhost
+    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # or IP
+    r'(?::\d+)?'  # optional port
+    r'(?:/?|[/?]\S+)$', re.IGNORECASE
+)
+
+
+def validate_url(url: str) -> bool:
+    """Validate URL format before processing with yt-dlp.
+    
+    This optimized validation prevents expensive yt-dlp calls on invalid URLs.
+    """
+    if not url or not isinstance(url, str):
+        return False
+    
+    url = url.strip()
+    
+    # Quick length check
+    if len(url) < 10 or len(url) > 2048:
+        return False
+    
+    # Use pre-compiled regex for performance
+    if not URL_PATTERN.match(url):
+        return False
+    
+    # Parse URL for additional validation
+    try:
+        parsed = urlparse(url)
+        # Must have scheme and netloc
+        if not parsed.scheme or not parsed.netloc:
+            return False
+        # Scheme must be http or https
+        if parsed.scheme not in ('http', 'https'):
+            return False
+    except Exception:
+        return False
+    
+    return True
 
 # CORS configuration
 app.add_middleware(
@@ -92,6 +137,10 @@ async def root():
 @app.get("/info")
 async def get_info(url: str = Query(..., description="Video URL")):
     """Get audio info from URL."""
+    # Validate URL before expensive yt-dlp processing
+    if not validate_url(url):
+        raise HTTPException(status_code=400, detail="Invalid URL format")
+    
     info = get_audio_info(url)
     if not info:
         return {"error": "Could not extract audio info"}
@@ -101,6 +150,10 @@ async def get_info(url: str = Query(..., description="Video URL")):
 @app.get("/stream")
 async def stream_audio(url: str = Query(..., description="Video URL")):
     """Stream audio from URL."""
+    # Validate URL before expensive yt-dlp processing
+    if not validate_url(url):
+        raise HTTPException(status_code=400, detail="Invalid URL format")
+    
     audio_url = get_audio_url(url)
     if not audio_url:
         return {"error": "Could not extract audio URL"}
@@ -176,6 +229,12 @@ class WaveformGenerator:
 async def websocket_waveform(websocket: WebSocket, url: str = Query(...)):
     """WebSocket endpoint for real-time waveform data."""
     await websocket.accept()
+    
+    # Validate URL before expensive yt-dlp processing
+    if not validate_url(url):
+        await websocket.send_json({"type": "error", "message": "Invalid URL format"})
+        await websocket.close()
+        return
     
     audio_url = get_audio_url(url)
     if not audio_url:
