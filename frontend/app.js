@@ -40,6 +40,9 @@ const audioPlayer = document.getElementById('audio-player');
 const waveformCanvas = document.getElementById('waveform-canvas');
 const trackTitle = document.getElementById('track-title');
 const volumeSlider = document.getElementById('volume-slider');
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const searchResults = document.getElementById('search-results');
 
 // Canvas setup
 const ctx = waveformCanvas.getContext('2d');
@@ -61,7 +64,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Draw waveform visualization
+// Draw waveform visualization with sinusoidal waves
 function drawWaveform() {
     const width = waveformCanvas.width;
     const height = waveformCanvas.height;
@@ -72,47 +75,99 @@ function drawWaveform() {
     ctx.fillRect(0, 0, width, height);
     
     if (amplitudes.length === 0) {
-        // Draw idle state
+        // Draw idle state with a flat sine wave
         ctx.strokeStyle = 'rgba(233, 69, 96, 0.3)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, centerY);
-        ctx.lineTo(width, centerY);
+        
+        // Draw a gentle sine wave
+        const frequency = 0.02;
+        const amplitude = 5;
+        for (let x = 0; x <= width; x++) {
+            const y = centerY + Math.sin(x * frequency) * amplitude;
+            ctx.lineTo(x, y);
+        }
         ctx.stroke();
         
         // Draw "waiting" text
         ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Waiting for audio...', width / 2, centerY);
+        ctx.fillText('Waiting for audio...', width / 2, centerY - 20);
         return;
     }
     
-    const barWidth = width / MAX_AMPLITUDES;
+    // Create gradient for the waveform
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, '#ff6b6b');
     gradient.addColorStop(0.5, '#e94560');
     gradient.addColorStop(1, '#ff6b6b');
     
-    ctx.fillStyle = gradient;
+    // Draw sinusoidal wave based on amplitudes
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     
-    for (let i = 0; i < amplitudes.length; i++) {
-        const amplitude = amplitudes[i];
-        const barHeight = amplitude * (height - 20);
-        const x = i * barWidth;
-        const y = centerY - barHeight / 2;
+    // Draw the main sine wave
+    ctx.beginPath();
+    
+    const step = width / (MAX_AMPLITUDES - 1); // Adjust step for proper spacing
+    const baseFrequency = 0.1;
+    
+    for (let i = 0; i < MAX_AMPLITUDES; i++) {
+        const x = i * step;
         
-        // Draw bar with rounded corners (with fallback for older browsers)
-        const radius = Math.min(barWidth / 4, 3);
-        ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius);
-        } else {
-            // Fallback for browsers without roundRect support
-            ctx.rect(x + 1, y, barWidth - 2, barHeight);
+        // Get amplitude for this position (with interpolation for smoothness)
+        let amplitude = 0;
+        if (i < amplitudes.length) {
+            amplitude = amplitudes[i];
+        } else if (amplitudes.length > 0) {
+            amplitude = amplitudes[amplitudes.length - 1] * 0.5;
         }
-        ctx.fill();
+        
+        // Create sinusoidal wave with amplitude modulation
+        const sineBase = Math.sin(i * baseFrequency);
+        const modulatedAmplitude = amplitude * (height / 2 - 20);
+        const y = centerY + sineBase * modulatedAmplitude;
+        
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
     }
+    
+    ctx.stroke();
+    
+    // Draw a mirrored wave for visual effect
+    ctx.strokeStyle = 'rgba(233, 69, 96, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    for (let i = 0; i < MAX_AMPLITUDES; i++) {
+        const x = i * step;
+        
+        let amplitude = 0;
+        if (i < amplitudes.length) {
+            amplitude = amplitudes[i];
+        } else if (amplitudes.length > 0) {
+            amplitude = amplitudes[amplitudes.length - 1] * 0.5;
+        }
+        
+        const sineBase = Math.sin(i * baseFrequency + Math.PI);
+        const modulatedAmplitude = amplitude * (height / 4);
+        const y = centerY + sineBase * modulatedAmplitude;
+        
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+    
+    ctx.stroke();
     
     // Draw center line
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -253,8 +308,121 @@ function togglePlayPause() {
     }
 }
 
+// Search for music
+async function searchMusic() {
+    const query = searchInput.value.trim();
+    
+    if (!query) {
+        alert('Please enter a search query');
+        return;
+    }
+    
+    // Update UI
+    searchBtn.disabled = true;
+    searchBtn.innerHTML = '<span class="search-icon">⏳</span> Searching...';
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Searching...</div>';
+    searchResults.classList.add('show');
+    
+    try {
+        const response = await fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+            displaySearchResults(data.results);
+        } else {
+            searchResults.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No results found</div>';
+        }
+        
+        searchBtn.innerHTML = '<span class="search-icon">🔍</span> Search';
+        searchBtn.disabled = false;
+        
+    } catch (error) {
+        console.error('Error searching music:', error);
+        searchResults.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff6b6b;">Error searching. Please try again.</div>';
+        searchBtn.innerHTML = '<span class="search-icon">🔍</span> Search';
+        searchBtn.disabled = false;
+    }
+}
+
+// Display search results
+function displaySearchResults(results) {
+    searchResults.innerHTML = '';
+    
+    results.forEach(result => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        
+        // Create elements safely to prevent XSS
+        const img = document.createElement('img');
+        img.className = 'search-result-thumbnail';
+        img.alt = result.title;
+        
+        // Validate and sanitize thumbnail URL
+        if (result.thumbnail && typeof result.thumbnail === 'string' && 
+            (result.thumbnail.startsWith('http://') || result.thumbnail.startsWith('https://'))) {
+            img.src = result.thumbnail;
+        } else {
+            img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="60" viewBox="0 0 80 60"%3E%3Crect fill="%23333" width="80" height="60"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
+        }
+        
+        img.onerror = function() {
+            this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="60" viewBox="0 0 80 60"%3E%3Crect fill="%23333" width="80" height="60"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
+        };
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'search-result-info';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'search-result-title';
+        titleDiv.textContent = result.title; // Safe - uses textContent
+        
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'search-result-meta';
+        const duration = result.duration ? formatDuration(result.duration) : '';
+        const uploader = result.uploader || 'Unknown';
+        metaDiv.textContent = uploader + (duration ? ' • ' + duration : '');
+        
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+        
+        item.appendChild(img);
+        item.appendChild(infoDiv);
+        
+        item.addEventListener('click', () => {
+            const videoUrl = `https://www.youtube.com/watch?v=${result.id}`;
+            urlInput.value = videoUrl;
+            searchResults.classList.remove('show');
+            playAudio();
+        });
+        
+        searchResults.appendChild(item);
+    });
+}
+
+// Format duration in seconds to MM:SS
+function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Event listeners
 playBtn.addEventListener('click', togglePlayPause);
+
+searchBtn.addEventListener('click', searchMusic);
+
+searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        searchMusic();
+    }
+});
 
 urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
