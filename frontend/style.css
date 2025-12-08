@@ -195,12 +195,6 @@ main {
     font-size: 0.9rem;
 }
 
-.input-section {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 25px;
-}
-
 #url-input {
     flex: 1;
     padding: 15px 20px;

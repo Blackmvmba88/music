@@ -150,8 +150,8 @@ async def search_music(q: str = Query(..., description="Search query", min_lengt
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            search_query = f"ytsearch10:{q}"
-            info = ydl.extract_info(search_query, download=False)
+            # The default_search option already adds the ytsearch prefix
+            info = ydl.extract_info(q, download=False)
             
             if not info or "entries" not in info:
                 return {"results": []}

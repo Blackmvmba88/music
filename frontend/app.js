@@ -352,18 +352,41 @@ function displaySearchResults(results) {
         const item = document.createElement('div');
         item.className = 'search-result-item';
         
-        const thumbnail = result.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="60" viewBox="0 0 80 60"%3E%3Crect fill="%23333" width="80" height="60"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
+        // Create elements safely to prevent XSS
+        const img = document.createElement('img');
+        img.className = 'search-result-thumbnail';
+        img.alt = result.title;
         
+        // Validate and sanitize thumbnail URL
+        if (result.thumbnail && typeof result.thumbnail === 'string' && 
+            (result.thumbnail.startsWith('http://') || result.thumbnail.startsWith('https://'))) {
+            img.src = result.thumbnail;
+        } else {
+            img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="60" viewBox="0 0 80 60"%3E%3Crect fill="%23333" width="80" height="60"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
+        }
+        
+        img.onerror = function() {
+            this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="60" viewBox="0 0 80 60"%3E%3Crect fill="%23333" width="80" height="60"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
+        };
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'search-result-info';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'search-result-title';
+        titleDiv.textContent = result.title; // Safe - uses textContent
+        
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'search-result-meta';
         const duration = result.duration ? formatDuration(result.duration) : '';
         const uploader = result.uploader || 'Unknown';
+        metaDiv.textContent = uploader + (duration ? ' • ' + duration : '');
         
-        item.innerHTML = `
-            <img src="${thumbnail}" alt="${result.title}" class="search-result-thumbnail" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'80\\' height=\\'60\\' viewBox=\\'0 0 80 60\\'%3E%3Crect fill=\\'%23333\\' width=\\'80\\' height=\\'60\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%23666\\' font-size=\\'12\\'%3ENo Image%3C/text%3E%3C/svg%3E'">
-            <div class="search-result-info">
-                <div class="search-result-title">${escapeHtml(result.title)}</div>
-                <div class="search-result-meta">${uploader}${duration ? ' • ' + duration : ''}</div>
-            </div>
-        `;
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+        
+        item.appendChild(img);
+        item.appendChild(infoDiv);
         
         item.addEventListener('click', () => {
             const videoUrl = `https://www.youtube.com/watch?v=${result.id}`;
