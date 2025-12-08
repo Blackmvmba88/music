@@ -137,9 +137,6 @@ async def root():
 @app.get("/search")
 async def search_music(q: str = Query(..., description="Search query", min_length=1)):
     """Search for music using yt-dlp."""
-    if not q or len(q.strip()) < 1:
-        raise HTTPException(status_code=400, detail="Search query cannot be empty")
-    
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,

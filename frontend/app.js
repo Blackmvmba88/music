@@ -113,10 +113,10 @@ function drawWaveform() {
     // Draw the main sine wave
     ctx.beginPath();
     
-    const step = width / MAX_AMPLITUDES;
+    const step = width / (MAX_AMPLITUDES - 1); // Adjust step for proper spacing
     const baseFrequency = 0.1;
     
-    for (let i = 0; i <= MAX_AMPLITUDES; i++) {
+    for (let i = 0; i < MAX_AMPLITUDES; i++) {
         const x = i * step;
         
         // Get amplitude for this position (with interpolation for smoothness)
@@ -146,7 +146,7 @@ function drawWaveform() {
     ctx.lineWidth = 2;
     ctx.beginPath();
     
-    for (let i = 0; i <= MAX_AMPLITUDES; i++) {
+    for (let i = 0; i < MAX_AMPLITUDES; i++) {
         const x = i * step;
         
         let amplitude = 0;
