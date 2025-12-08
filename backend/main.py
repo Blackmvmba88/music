@@ -134,6 +134,46 @@ async def root():
     return {"message": "Music Streaming API", "version": "1.0.0"}
 
 
+@app.get("/search")
+async def search_music(q: str = Query(..., description="Search query", min_length=1)):
+    """Search for music using yt-dlp."""
+    if not q or len(q.strip()) < 1:
+        raise HTTPException(status_code=400, detail="Search query cannot be empty")
+    
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "default_search": "ytsearch10",  # Search YouTube for top 10 results
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            search_query = f"ytsearch10:{q}"
+            info = ydl.extract_info(search_query, download=False)
+            
+            if not info or "entries" not in info:
+                return {"results": []}
+            
+            results = []
+            for entry in info["entries"]:
+                if entry:
+                    results.append({
+                        "id": entry.get("id", ""),
+                        "title": entry.get("title", "Unknown"),
+                        "url": entry.get("url", ""),
+                        "duration": entry.get("duration", 0),
+                        "thumbnail": entry.get("thumbnail", ""),
+                        "uploader": entry.get("uploader", "Unknown"),
+                    })
+            
+            return {"results": results}
+    except Exception as e:
+        print(f"Error searching music: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
 @app.get("/info")
 async def get_info(url: str = Query(..., description="Video URL")):
     """Get audio info from URL."""
